@@ -1,34 +1,71 @@
-# PREVISÃO INTELIGENTE COM REGRESSÃO
-st.header("Previsão Inteligente")
+import streamlit as st
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
 
-if len(data_list) >= 15:
-    last_15 = data_list[-15:]
-    x = np.arange(len(last_15)).reshape(-1, 1)
-    y = np.array(last_15).reshape(-1, 1)
+st.set_page_config(page_title="Previsão Inteligente - Ernésia", layout="centered")
 
-    model = LinearRegression()
-    model.fit(x, y)
+st.title("Previsão Inteligente - Queda do Aviator")
+st.markdown("Insira os valores (ex: 1.95, 2.00, etc). O sistema aprenderá e preverá o próximo valor provável.")
 
-    next_index = np.array([[len(last_15)]])
-    prediction = model.predict(next_index)[0][0]
+# Session state para armazenar os dados
+if 'dados' not in st.session_state:
+    st.session_state.dados = []
 
-    # Ajuste para estimar intervalo
-    min_pred = prediction * 0.85
-    mean_pred = prediction
+# Entrada de dados
+novo_valor = st.number_input("Novo valor", min_value=0.0, step=0.01, format="%.2f")
+if st.button("Adicionar"):
+    st.session_state.dados.append(novo_valor)
 
-    st.success(f"Valor mínimo provável: **{min_pred:.2f}**")
-    st.info(f"Valor médio provável: **{mean_pred:.2f}**")
+# Botão para apagar tudo
+if st.button("Apagar Dados"):
+    st.session_state.dados.clear()
+    st.success("Todos os dados foram apagados.")
 
-    # Mostrar gráfico com linha de tendência
-    st.subheader("Gráfico com linha de tendência")
+dados = st.session_state.dados
+
+# Exibição dos dados
+if dados:
+    st.subheader("Últimos Valores")
+    st.write(dados)
+
+    # Transformar para DataFrame
+    df = pd.DataFrame(dados, columns=["Valor"])
+    df["Índice"] = range(len(df))
+
+    # Gráfico com regressão
     fig, ax = plt.subplots()
-    ax.plot(range(len(last_15)), last_15, 'o-', label='Dados')
-    ax.plot(range(len(last_15)) + [len(last_15)], 
-            np.append(model.predict(x), prediction), '--', label='Tendência')
-    ax.set_xlabel("Posição")
+    ax.plot(df["Índice"], df["Valor"], marker="o", label="Valores Inseridos")
+
+    # Cores por classificação
+    for i, v in enumerate(dados):
+        cor = "red" if v < 2 else "green" if v > 3 else "orange"
+        ax.scatter(i, v, color=cor)
+
+    # Regressão Linear
+    if len(dados) >= 5:
+        ultimos_dados = dados[-15:] if len(dados) > 15 else dados
+        X = np.arange(len(ultimos_dados)).reshape(-1, 1)
+        y = np.array(ultimos_dados).reshape(-1, 1)
+        modelo = LinearRegression()
+        modelo.fit(X, y)
+        proximo_indice = len(ultimos_dados)
+        previsao = modelo.predict([[proximo_indice]])[0][0]
+        minimo = previsao * 0.85  # margem de segurança -15%
+
+        # Mostrar a linha de tendência
+        y_pred = modelo.predict(X)
+        ax.plot(X, y_pred, color="blue", linestyle="--", label="Tendência")
+
+        st.subheader("Previsão Inteligente")
+        st.success(f"Valor mínimo provável: {minimo:.2f}")
+        st.info(f"Valor médio provável: {previsao:.2f}")
+
+    ax.set_xlabel("Entrada")
     ax.set_ylabel("Valor")
+    ax.set_title("Tendência dos Últimos Valores")
     ax.legend()
     st.pyplot(fig)
-
 else:
-    st.warning("Forneça pelo menos 15 valores para ativar a previsão inteligente.")
+    st.warning("Insira alguns valores para começar.")
